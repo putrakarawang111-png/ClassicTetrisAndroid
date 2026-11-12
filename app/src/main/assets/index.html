@@ -102,6 +102,14 @@ body.playing .app { display: block; }
 body:not(.playing) .app { display: none; }
 #exitBtn { background: linear-gradient(#27334b, #182236); }
 
+
+.audio-panel { display:grid; gap:7px; text-align:left; }
+.audio-row { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.audio-row label { font-size:11px; color:#b9c8df; font-weight:700; }
+.audio-toggle { padding:7px 8px; min-width:54px; font-size:11px; }
+.audio-panel input[type="range"] { width:100%; accent-color:#35e5ff; height:18px; }
+.audio-caption { color:#8193b2; font-size:10px; text-align:center; }
+
 </style>
 </head>
 <body>
@@ -139,6 +147,13 @@ body:not(.playing) .app { display: none; }
       <div class="panel"><h2>TERTINGGI</h2><div class="value" id="best">0</div></div>
       <div class="panel"><h2>LEVEL</h2><div class="value" id="level">1</div></div>
       <div class="panel"><h2>BERIKUTNYA</h2><canvas id="next" width="120" height="100"></canvas></div>
+      <div class="panel audio-panel">
+        <div class="audio-row"><label for="soundToggle">EFEK SUARA</label><button class="audio-toggle" id="soundToggle" type="button">ON</button></div>
+        <div class="audio-row"><label for="musicToggle">MUSIK</label><button class="audio-toggle" id="musicToggle" type="button">ON</button></div>
+        <label for="volumeControl">VOLUME</label>
+        <input id="volumeControl" type="range" min="0" max="100" value="55">
+        <div class="audio-caption">ARCADE CLASSIC</div>
+      </div>
       <button id="startBtn">MULAI</button>
       <button id="pauseBtn">JEDA</button>
       <button id="restartBtn">ULANGI</button>
@@ -178,7 +193,90 @@ body:not(.playing) .app { display: none; }
   const scoreEl = document.getElementById("score");
   const levelEl = document.getElementById("level");
   const bestEl = document.getElementById("best");
+
   const statusEl = document.getElementById("status");
+
+  // Audio arcade original: semua nada dibuat secara lokal dengan Web Audio API.
+  let audioCtx = null, masterGain = null, musicTimer = null, musicStep = 0;
+  let soundEnabled = true, musicEnabled = true, volumeLevel = 0.55;
+  const musicNotes = [659, 494, 523, 587, 523, 494, 440, 440,
+                      523, 659, 587, 523, 494, 523, 587, 659,
+                      523, 440, 392, 440, 494, 523, 494, 440];
+  function initAudio() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return false;
+    if (!audioCtx) {
+      audioCtx = new AudioContextClass();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = volumeLevel;
+      masterGain.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return true;
+  }
+  function tone(freq, duration=0.09, type="square", gain=0.12, when=0) {
+    if (!soundEnabled || !initAudio()) return;
+    const t = audioCtx.currentTime + when;
+    const osc = audioCtx.createOscillator();
+    const amp = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t);
+    amp.gain.setValueAtTime(0.0001, t);
+    amp.gain.exponentialRampToValueAtTime(Math.max(0.001, gain), t + 0.008);
+    amp.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+    osc.connect(amp); amp.connect(masterGain);
+    osc.start(t); osc.stop(t + duration + 0.02);
+  }
+  function sfx(name) {
+    if (!soundEnabled) return;
+    if (!initAudio()) return;
+    const patterns = {
+      start: [[523,.10],[659,.10],[784,.18]],
+      move: [[260,.045]],
+      rotate: [[420,.05],[620,.07]],
+      drop: [[180,.08],[110,.12]],
+      clear: [[660,.08],[784,.08],[988,.10],[1318,.20]],
+      gameover: [[494,.13],[440,.13],[392,.18],[294,.30]],
+      pause: [[440,.08],[330,.12]],
+      resume: [[330,.08],[440,.12]]
+    };
+    (patterns[name] || []).forEach((n,i)=>tone(n[0],n[1],"square",name==="move"?.045:.10,i*.085));
+  }
+  function musicTick() {
+    if (!musicEnabled || !initAudio()) return;
+    const freq = musicNotes[musicStep % musicNotes.length];
+    tone(freq, 0.14, "square", 0.035);
+    if (musicStep % 4 === 0) tone(freq/2, 0.12, "triangle", 0.025, 0.01);
+    musicStep++;
+  }
+  function startMusic() {
+    if (!musicEnabled || musicTimer) return;
+    if (!initAudio()) return;
+    musicTick();
+    musicTimer = setInterval(musicTick, 190);
+  }
+  function stopMusic() {
+    if (musicTimer) { clearInterval(musicTimer); musicTimer = null; }
+  }
+  function syncAudioButtons() {
+    document.getElementById("soundToggle").textContent = soundEnabled ? "ON" : "OFF";
+    document.getElementById("musicToggle").textContent = musicEnabled ? "ON" : "OFF";
+  }
+  document.getElementById("soundToggle").addEventListener("click", () => {
+    initAudio(); soundEnabled = !soundEnabled; syncAudioButtons();
+    if (soundEnabled) sfx("resume");
+  });
+  document.getElementById("musicToggle").addEventListener("click", () => {
+    initAudio(); musicEnabled = !musicEnabled;
+    if (musicEnabled) startMusic(); else stopMusic();
+    syncAudioButtons();
+  });
+  document.getElementById("volumeControl").addEventListener("input", e => {
+    volumeLevel = Number(e.target.value) / 100;
+    if (initAudio()) masterGain.gain.setTargetAtTime(volumeLevel, audioCtx.currentTime, 0.03);
+  });
+  syncAudioButtons();
+
   try { best = Number(localStorage.getItem("classicTetrisBest") || 0); } catch (_) {}
   bestEl.textContent = best;
 
@@ -218,6 +316,7 @@ body:not(.playing) .app { display: none; }
     }
     if (count) {
       score += [0, 100, 300, 500, 800][count] * level;
+      sfx("clear");
       level = Math.floor(score / 1000) + 1;
       scoreEl.textContent = score;
       levelEl.textContent = level;
@@ -232,20 +331,21 @@ body:not(.playing) .app { display: none; }
     if (!running || paused || over) return;
     player.x += dir;
     if (collides(player.matrix, player.x, player.y)) player.x -= dir;
+    else sfx("move");
     draw();
   }
   function softDrop() {
     if (!running || paused || over) return;
     player.y++;
     if (collides(player.matrix, player.x, player.y)) { player.y--; lockPiece(); }
-    else score += 1;
+    else { score += 1; sfx("drop"); }
     scoreEl.textContent = score;
     dropTimer = 0; draw();
   }
   function hardDrop() {
     if (!running || paused || over) return;
     while (!collides(player.matrix, player.x, player.y + 1)) player.y++;
-    lockPiece(); draw();
+    sfx("drop"); lockPiece(); draw();
   }
   function rotate() {
     if (!running || paused || over) return;
@@ -261,6 +361,7 @@ body:not(.playing) .app { display: none; }
       }
       if (!kicked) player.matrix = old;
     }
+    sfx("rotate");
     draw();
   }
   function drawCell(context, x, y, color, size) {
@@ -311,17 +412,21 @@ body:not(.playing) .app { display: none; }
     nextPiece = randomPiece(); spawn();
     statusEl.textContent = "Semangat! Susun balok dan hapus baris.";
     document.getElementById("pauseBtn").textContent = "JEDA";
+    initAudio(); sfx("start"); startMusic();
     draw();
   }
   function endGame() {
     over = true; running = false;
     statusEl.textContent = "Game selesai — skor kamu: " + score;
+    sfx("gameover"); stopMusic();
     draw();
   }
   function togglePause() {
     if (over || !board) return;
     if (!running && !paused) return;
     paused = !paused; running = !paused;
+    sfx(paused ? "pause" : "resume");
+    if (paused) stopMusic(); else startMusic();
     document.getElementById("pauseBtn").textContent = paused ? "LANJUT" : "JEDA";
     statusEl.textContent = paused ? "Permainan dijeda." : "Permainan dilanjutkan.";
     draw();
@@ -333,7 +438,7 @@ body:not(.playing) .app { display: none; }
       const interval = Math.max(90, 800 - (level - 1) * 65);
       if (dropTimer >= interval) {
         player.y++;
-        if (collides(player.matrix, player.x, player.y)) { player.y--; lockPiece(); }
+        if (collides(player.matrix, player.x, player.y)) { player.y--; sfx("drop"); lockPiece(); }
         dropTimer = 0;
       }
       draw();
@@ -374,6 +479,7 @@ body:not(.playing) .app { display: none; }
     resumeAfterDialog = running && !paused && !over;
     if (resumeAfterDialog) {
       running = false;
+      stopMusic();
       statusEl.textContent = "Permainan dijeda sementara.";
       draw();
     }
@@ -384,6 +490,7 @@ body:not(.playing) .app { display: none; }
     if (resumeAfterDialog && !over) {
       running = true;
       paused = false;
+      startMusic();
       statusEl.textContent = "Permainan dilanjutkan.";
       draw();
     }
