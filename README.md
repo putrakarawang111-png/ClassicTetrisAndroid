@@ -27,3 +27,9 @@ This source project is ready to open in Android Studio. The APK itself is not pr
 4. When the workflow finishes, open its run page and download the `Classic-Tetris-APK` artifact.
 5. Extract the downloaded artifact ZIP; it contains `app-debug.apk`.
 6. Transfer the APK to the Android phone and install it.
+
+
+## Update 2.0
+- Added opening menu and exit confirmation.
+- Added Android back-button exit confirmation.
+- Disabled long-press text selection and context menu in the game.

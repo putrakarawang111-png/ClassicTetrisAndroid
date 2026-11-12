@@ -7,7 +7,14 @@
 <title>Classic Tetris</title>
 <style>
 :root { color-scheme: dark; }
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+html, body { overscroll-behavior: none; }
 body {
   margin: 0; min-height: 100vh; padding: 16px 12px 24px;
   background: radial-gradient(circle at top, #202d49 0, #101522 48%, #090d16 100%);
@@ -48,9 +55,79 @@ button:active { transform: scale(.96); background: #31527d; }
   .value { font-size: 20px; }
   button { padding: 9px 5px; font-size: 12px; }
 }
+
+/* Opening screen and exit confirmation */
+#openingScreen {
+  position: fixed; inset: 0; z-index: 50; display: flex;
+  flex-direction: column; align-items: center; justify-content: center;
+  padding: 28px; text-align: center;
+  background: radial-gradient(circle at 50% 30%, #243c65 0, #101522 48%, #070b13 100%);
+}
+.opening-logo {
+  color: #35e5ff; font-size: clamp(34px, 10vw, 52px); font-weight: 950;
+  letter-spacing: 4px; line-height: 1.05;
+  text-shadow: 0 0 12px #00c6df88, 0 0 34px #1685db66;
+}
+.opening-subtitle { color: #aebed9; letter-spacing: 5px; font-size: 11px; margin: 13px 0 38px; }
+.opening-blocks { display: flex; gap: 6px; margin-bottom: 42px; }
+.opening-blocks span { width: 24px; height: 24px; border-radius: 4px; box-shadow: inset 0 3px 5px #ffffff55, 0 5px 15px #0008; }
+.opening-blocks span:nth-child(1), .opening-blocks span:nth-child(4) { background: #25d9ed; }
+.opening-blocks span:nth-child(2), .opening-blocks span:nth-child(5) { background: #ffe04b; }
+.opening-blocks span:nth-child(3) { background: #42dc82; }
+.menu-actions { width: min(100%, 280px); display: grid; gap: 13px; }
+.menu-actions button { min-height: 52px; font-size: 15px; }
+#menuStartBtn { background: linear-gradient(135deg, #00c6df, #1685db); color: #061522; border: 0; }
+#menuExitBtn { background: linear-gradient(#27334b, #182236); }
+#openingScreen .version { position: absolute; bottom: 24px; color: #71819d; font-size: 11px; }
+#exitDialog {
+  position: fixed; inset: 0; z-index: 60; display: none;
+  align-items: center; justify-content: center; padding: 22px;
+  background: #020611c9;
+}
+#exitDialog.show { display: flex; }
+.dialog-card {
+  width: min(100%, 330px); padding: 24px 20px 19px; text-align: center;
+  border: 1px solid #435779; border-radius: 17px;
+  background: linear-gradient(160deg, #243653, #111a2b);
+  box-shadow: 0 18px 55px #000b;
+}
+.dialog-icon { font-size: 34px; margin-bottom: 8px; }
+.dialog-card h2 { margin: 0 0 9px; font-size: 20px; color: #fff; }
+.dialog-card p { margin: 0 0 22px; color: #b8c6dd; font-size: 13px; line-height: 1.5; }
+.dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dialog-actions button { min-height: 45px; }
+#confirmExitBtn { background: linear-gradient(135deg, #ff626f, #d9344b); border: 0; }
+#cancelExitBtn { background: #293d5d; }
+body.playing .app { display: block; }
+body:not(.playing) .app { display: none; }
+#exitBtn { background: linear-gradient(#27334b, #182236); }
+
 </style>
 </head>
 <body>
+<section id="openingScreen" aria-label="Menu utama Classic Tetris">
+  <div class="opening-logo">CLASSIC<br>TETRIS</div>
+  <div class="opening-subtitle">ARCADE PUZZLE GAME</div>
+  <div class="opening-blocks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+  <div class="menu-actions">
+    <button id="menuStartBtn">▶ &nbsp; MULAI BERMAIN</button>
+    <button id="menuExitBtn">KELUAR GAME</button>
+  </div>
+  <div class="version">CLASSIC TETRIS • VERSION 2.0</div>
+</section>
+
+<section id="exitDialog" role="dialog" aria-modal="true" aria-labelledby="exitTitle">
+  <div class="dialog-card">
+    <div class="dialog-icon">🚪</div>
+    <h2 id="exitTitle">Keluar dari game?</h2>
+    <p>Apakah kamu yakin ingin keluar dari permainan Classic Tetris?</p>
+    <div class="dialog-actions">
+      <button id="cancelExitBtn">BATAL</button>
+      <button id="confirmExitBtn">YA, KELUAR</button>
+    </div>
+  </div>
+</section>
+
 <main class="app">
   <h1>CLASSIC TETRIS</h1>
   <section class="layout">
@@ -65,6 +142,7 @@ button:active { transform: scale(.96); background: #31527d; }
       <button id="startBtn">MULAI</button>
       <button id="pauseBtn">JEDA</button>
       <button id="restartBtn">ULANGI</button>
+      <button id="exitBtn">KELUAR</button>
     </aside>
   </section>
   <div class="status" id="status">Tekan MULAI untuk bermain</div>
@@ -288,6 +366,66 @@ button:active { transform: scale(.96); background: #31527d; }
     else if (e.code === "Space") hardDrop();
     else if (e.key.toLowerCase() === "p") togglePause();
   });
+  const openingScreen = document.getElementById("openingScreen");
+  const exitDialog = document.getElementById("exitDialog");
+  let resumeAfterDialog = false;
+
+  function showExitDialog() {
+    resumeAfterDialog = running && !paused && !over;
+    if (resumeAfterDialog) {
+      running = false;
+      statusEl.textContent = "Permainan dijeda sementara.";
+      draw();
+    }
+    exitDialog.classList.add("show");
+  }
+  function hideExitDialog() {
+    exitDialog.classList.remove("show");
+    if (resumeAfterDialog && !over) {
+      running = true;
+      paused = false;
+      statusEl.textContent = "Permainan dilanjutkan.";
+      draw();
+    }
+    resumeAfterDialog = false;
+  }
+  function confirmExit() {
+    if (window.AndroidBridge && typeof window.AndroidBridge.exitApp === "function") {
+      window.AndroidBridge.exitApp();
+    } else {
+      statusEl.textContent = "Silakan tutup aplikasi melalui tombol kembali perangkat.";
+      hideExitDialog();
+    }
+  }
+  function enterGame() {
+    document.body.classList.add("playing");
+    openingScreen.style.display = "none";
+    startGame();
+  }
+
+  document.getElementById("menuStartBtn").addEventListener("click", enterGame);
+  document.getElementById("menuExitBtn").addEventListener("click", showExitDialog);
+  document.getElementById("exitBtn").addEventListener("click", showExitDialog);
+  document.getElementById("cancelExitBtn").addEventListener("click", hideExitDialog);
+  document.getElementById("confirmExitBtn").addEventListener("click", confirmExit);
+  exitDialog.addEventListener("click", e => {
+    if (e.target === exitDialog) hideExitDialog();
+  });
+
+  // Dipanggil oleh tombol Back Android.
+  window.handleAndroidBack = function() {
+    if (exitDialog.classList.contains("show")) {
+      hideExitDialog();
+    } else {
+      showExitDialog();
+    }
+  };
+
+  // Hilangkan menu Salin/Pilih semua/Bagikan saat layar ditekan lama.
+  ["contextmenu", "selectstart", "dragstart"].forEach(eventName => {
+    document.addEventListener(eventName, e => e.preventDefault(), { passive: false });
+  });
+
   board = newBoard(); nextPiece = randomPiece(); drawNext(); draw();
   requestAnimationFrame(update);
 })();

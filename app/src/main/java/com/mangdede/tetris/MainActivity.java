@@ -2,6 +2,7 @@ package com.mangdede.tetris;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.webkit.JavascriptInterface;
 import android.view.View;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
@@ -11,6 +12,14 @@ import android.graphics.Color;
 
 public class MainActivity extends Activity {
     private WebView webView;
+    private boolean pageLoaded = false;
+
+    public class AndroidBridge {
+        @JavascriptInterface
+        public void exitApp() {
+            runOnUiThread(() -> finishAffinity());
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -21,7 +30,14 @@ public class MainActivity extends Activity {
         webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(16, 21, 34));
         webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        webView.setWebViewClient(new WebViewClient());
+        webView.setLongClickable(false);
+        webView.setHapticFeedbackEnabled(false);
+        webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                pageLoaded = true;
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient());
 
         WebSettings settings = webView.getSettings();
@@ -35,14 +51,19 @@ public class MainActivity extends Activity {
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
 
+        webView.addJavascriptInterface(new AndroidBridge(), "AndroidBridge");
+
         setContentView(webView);
         webView.loadUrl("file:///android_asset/index.html");
     }
 
     @Override
     public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
+        if (webView != null && pageLoaded) {
+            webView.evaluateJavascript(
+                "if (window.handleAndroidBack) { window.handleAndroidBack(); }",
+                null
+            );
         } else {
             super.onBackPressed();
         }
