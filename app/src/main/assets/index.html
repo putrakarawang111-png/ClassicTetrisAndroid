@@ -110,6 +110,135 @@ body:not(.playing) .app { display: none; }
 .audio-panel input[type="range"] { width:100%; accent-color:#35e5ff; height:18px; }
 .audio-caption { color:#8193b2; font-size:10px; text-align:center; }
 
+
+/* Tampilan Android: seluruh permainan dipadatkan mengikuti tinggi layar, tanpa scroll */
+html, body {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+body {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
+  padding: 6px 8px;
+  align-items: stretch;
+}
+.app {
+  width: min(100%, 520px);
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+body:not(.playing) .app { display: none; }
+body.playing .app { display: flex; }
+h1 {
+  flex: 0 0 auto;
+  margin: 0 0 6px;
+  font-size: clamp(19px, 5.5vw, 29px);
+  line-height: 1.15;
+  letter-spacing: 2px;
+}
+.layout {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: stretch;
+  gap: 8px;
+}
+.board-wrap {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+#game {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  object-fit: fill;
+}
+.side {
+  width: clamp(92px, 29vw, 112px);
+  flex: 0 0 clamp(92px, 29vw, 112px);
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: .78fr .78fr .78fr 1.25fr 1.35fr repeat(4, .72fr);
+  gap: 5px;
+}
+.panel {
+  min-height: 0;
+  padding: 5px 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+.panel h2 { margin: 0 0 2px; font-size: 10px; }
+.value { font-size: clamp(17px, 5vw, 21px); line-height: 1.1; }
+#next {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
+.side button {
+  min-height: 0;
+  height: 100%;
+  padding: 4px 3px;
+  font-size: 12px;
+}
+.audio-panel { gap: 3px; }
+.audio-row { gap: 3px; }
+.audio-row label { font-size: 9px; line-height: 1.1; }
+.audio-toggle { min-width: 38px; padding: 4px 3px !important; font-size: 10px !important; }
+.audio-panel > label { font-size: 11px; }
+.audio-panel input[type="range"] { height: 14px; min-height: 12px; margin: 0; }
+.audio-caption { font-size: 8px; }
+.status {
+  flex: 0 0 auto;
+  min-height: 18px;
+  margin: 5px 0 2px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+.controls {
+  flex: 0 0 auto;
+  width: min(100%, 340px);
+  gap: 7px;
+  margin: 5px auto 0;
+}
+.controls button {
+  min-height: 42px;
+  height: 42px;
+  padding: 3px;
+  font-size: 20px;
+}
+.hint {
+  flex: 0 0 auto;
+  margin: 5px auto 0;
+  font-size: 9px;
+  line-height: 1.25;
+}
+@media (max-height: 720px) {
+  body { padding: 4px 6px; }
+  h1 { margin-bottom: 3px; font-size: 19px; }
+  .side { grid-template-rows: .7fr .7fr .7fr 1.05fr 1.15fr repeat(4, .65fr); gap: 3px; }
+  .panel { padding: 3px; }
+  .controls button { min-height: 34px; height: 34px; }
+  .hint { display: none; }
+  .status { min-height: 14px; margin: 3px 0 0; }
+}
+@media (max-width: 350px) {
+  body { padding-left: 5px; padding-right: 5px; }
+  .layout { gap: 5px; }
+  .side { width: 88px; flex-basis: 88px; }
+  .side button { font-size: 10px; }
+}
+
 </style>
 </head>
 <body>
